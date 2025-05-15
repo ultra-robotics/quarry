@@ -4,10 +4,10 @@ defmodule Quarry.LoadTest do
   alias Quarry.Load
 
   import Ecto.Query
-  alias Quarry.{Comment, Post, Load}
+  alias Quarry.{Comment, Post, Load, User}
 
   setup do
-    %{base: {from(p in Post, as: :post), []}}
+    %{base: {from(p in Post, as: :post), []}, user_base: {from(u in User, as: :user), []}}
   end
 
   test "can preload belongs_to", %{base: base} do
@@ -54,6 +54,21 @@ defmodule Quarry.LoadTest do
 
     load = [:comments]
     {actual, []} = Load.build(base, load)
+    assert inspect(actual) == inspect(expected)
+  end
+
+  test "can preload has_many through", %{user_base: user_base} do
+    posts_query = from(p in Post, as: :user_post)
+
+    expected =
+      from(
+        u0 in User,
+        as: :user,
+        preload: [posts: ^posts_query]
+      )
+
+    load = [:posts]
+    {actual, []} = Load.build(user_base, load)
     assert inspect(actual) == inspect(expected)
   end
 
