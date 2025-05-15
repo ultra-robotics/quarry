@@ -1,7 +1,6 @@
 defmodule Quarry.Load do
   @moduledoc false
   require Ecto.Query
-  import Ecto.Query
 
   alias Quarry.{Join, From, QueryStruct}
 
