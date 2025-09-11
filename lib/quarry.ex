@@ -11,7 +11,7 @@ defmodule Quarry do
   """
   require Ecto.Query
 
-  alias Quarry.{From, Filter, Load, Sort}
+  alias Quarry.{From, Filter, Load, Sort, Aggregate}
 
   @type operation :: :lt | :gt | :lte | :gte | :starts_with | :ends_with
   @type filter_param :: String.t() | number
@@ -19,6 +19,10 @@ defmodule Quarry do
   @type filter :: %{optional(atom()) => filter_param() | tuple_filter_param()}
   @type load :: atom() | [atom() | keyword(load())]
   @type sort :: atom() | [atom() | [atom()] | {:asc | :desc, atom() | [atom()]}]
+  @type aggregate_function :: :count | :sum | :avg | :min | :max
+  @type aggregate_field :: atom() | [atom()]
+  @type aggregate_spec :: {aggregate_function(), aggregate_field()}
+  @type group_by :: atom() | [atom() | [atom()]]
   @type opts :: [
           filter: filter(),
           load: load(),
@@ -26,8 +30,16 @@ defmodule Quarry do
           limit: integer(),
           offset: integer()
         ]
+  @type aggregate_opts :: [
+          filter: filter(),
+          sort: sort(),
+          limit: integer(),
+          offset: integer(),
+          aggregate: [aggregate_spec()],
+          group_by: group_by()
+        ]
 
-  @type error :: %{type: :filter | :load, path: [atom()], message: String.t()}
+  @type error :: %{type: :filter | :load | :aggregate | :group_by, path: [atom()], message: String.t()}
 
   @doc """
   Builds a query for an entity type from parameters
@@ -156,4 +168,58 @@ defmodule Quarry do
     do: {Ecto.Query.offset(query, ^value), errors}
 
   defp offset(token, _value), do: token
+
+  @doc """
+  Builds an aggregation query for an entity type from parameters
+
+  ## Examples
+
+  ```elixir
+  # Simple count by author
+  iex> Quarry.aggregate!(Quarry.Post, aggregate: [{:count, :id}], group_by: :author_id)
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, group_by: [as(:post).author_id], select: %{count: count(as(:post).id)}>
+
+  # Multiple aggregations
+  iex> Quarry.aggregate!(Quarry.Post, aggregate: [{:count, :id}, {:sum, :view_count}], group_by: :author_id)
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, group_by: [as(:post).author_id], select: %{count: count(as(:post).id), sum: sum(as(:post).view_count)}>
+
+  # Nested field grouping
+  iex> Quarry.aggregate!(Quarry.Post, aggregate: [{:count, :id}], group_by: [:author, :publisher])
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, group_by: [as(:post_author).publisher], select: %{count: count(as(:post).id)}>
+
+  # With filtering
+  iex> Quarry.aggregate!(Quarry.Post, filter: %{published: true}, aggregate: [{:count, :id}], group_by: :author_id)
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, where: as(:post).published == ^true, group_by: [as(:post).author_id], select: %{count: count(as(:post).id)}>
+  ```
+
+  """
+  @spec aggregate!(atom(), aggregate_opts()) :: Ecto.Query.t()
+  def aggregate!(schema, opts \\ []) do
+    {query, _errors} = aggregate(schema, opts)
+    query
+  end
+
+  @spec aggregate(atom(), aggregate_opts()) :: {Ecto.Query.t(), [error()]}
+  def aggregate(schema, opts \\ []) do
+    default_opts = %{
+      binding_prefix: nil,
+      load_path: [],
+      filter: %{},
+      sort: [],
+      limit: nil,
+      offset: nil,
+      aggregate: [],
+      group_by: []
+    }
+
+    opts = Map.merge(default_opts, Map.new(opts))
+
+    {schema, []}
+    |> From.build(opts.binding_prefix)
+    |> Filter.build(opts.filter, opts.load_path)
+    |> Sort.build(opts.sort, opts.load_path)
+           |> Aggregate.build(opts.aggregate, opts.group_by, opts.load_path)
+    |> limit(opts.limit)
+    |> offset(opts.offset)
+  end
 end
