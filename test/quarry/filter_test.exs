@@ -14,8 +14,8 @@ defmodule Quarry.FilterTest do
       from(
         p in Post,
         as: :post,
-        where: as(:post).body == ^"body",
-        where: as(:post).title == ^"title"
+        where: as(:post).title == ^"title",
+        where: as(:post).body == ^"body"
       )
 
     filter = %{title: "title", body: "body"}
@@ -38,7 +38,7 @@ defmodule Quarry.FilterTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         where: as(:post_author).publisher == ^"publisher"
       )
@@ -66,12 +66,12 @@ defmodule Quarry.FilterTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
-        where: as(:post_author).publisher == ^"publisher",
-        where: as(:post_author_user).name == ^"john"
+        where: as(:post_author_user).name == ^"john",
+        where: as(:post_author).publisher == ^"publisher"
       )
 
     filter = %{author: %{publisher: "publisher", user: %{name: "john"}}}
@@ -84,12 +84,12 @@ defmodule Quarry.FilterTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
-        where: as(:post_author).publisher in ^["publisher1", "publisher2"],
-        where: as(:post_author_user).name == ^"john"
+        where: as(:post_author_user).name == ^"john",
+        where: as(:post_author).publisher in ^["publisher1", "publisher2"]
       )
 
     filter = %{author: %{publisher: ["publisher1", "publisher2"], user: %{name: "john"}}}
@@ -101,7 +101,7 @@ defmodule Quarry.FilterTest do
     expected =
       from(p in Post,
         as: :post,
-        join: c in assoc(p, :comments),
+        left_join: c in assoc(p, :comments),
         as: :post_comments,
         where: as(:post_comments).body == ^"comment"
       )
@@ -115,9 +115,9 @@ defmodule Quarry.FilterTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
         where: as(:post_author_user).login_count < ^1
       )
@@ -130,9 +130,9 @@ defmodule Quarry.FilterTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
         where: as(:post_author_user).login_count > ^1
       )
@@ -145,9 +145,9 @@ defmodule Quarry.FilterTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
         where: as(:post_author_user).login_count >= ^1
       )
@@ -160,9 +160,9 @@ defmodule Quarry.FilterTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
         where: as(:post_author_user).login_count <= ^1
       )

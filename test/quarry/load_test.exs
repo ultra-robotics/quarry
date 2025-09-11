@@ -15,7 +15,7 @@ defmodule Quarry.LoadTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         preload: [author: a]
       )
@@ -30,9 +30,9 @@ defmodule Quarry.LoadTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
-        join: u in assoc(a, :user),
+        left_join: u in assoc(a, :user),
         as: :post_author_user,
         preload: [author: {a, user: u}]
       )
@@ -77,7 +77,7 @@ defmodule Quarry.LoadTest do
       from(
         c in Comment,
         as: :post_comment,
-        join: u in assoc(c, :user),
+        left_join: u in assoc(c, :user),
         as: :post_comment_user,
         preload: [user: u]
       )
@@ -86,7 +86,7 @@ defmodule Quarry.LoadTest do
       from(
         p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         preload: [author: a],
         preload: [comments: ^comments_query]

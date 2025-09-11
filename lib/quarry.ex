@@ -42,11 +42,11 @@ defmodule Quarry do
 
   # Field on nested belongs_to relationship
   iex> Quarry.build!(Quarry.Post, filter: %{author: %{publisher: "Publisher"}})
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, where: as(:post_author).publisher == ^"Publisher">
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, where: as(:post_author).publisher == ^"Publisher">
 
   # Field on nested has_many relationship
   iex> Quarry.build!(Quarry.Post, filter: %{comments: %{body: "comment body"}})
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: c1 in assoc(p0, :comments), as: :post_comments, where: as(:post_comments).body == ^"comment body">
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: c1 in assoc(p0, :comments), as: :post_comments, where: as(:post_comments).body == ^"comment body">
 
 
   # Can filter by explicit operation
@@ -64,23 +64,23 @@ defmodule Quarry do
   ```elixir
   # Single atom
   iex> Quarry.build!(Quarry.Post, load: :author)
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, preload: [author: a1]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, preload: [author: a1]>
 
   # List of atoms
   iex> Quarry.build!(Quarry.Post, load: [:author, :comments])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment>], preload: [author: a1]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment>], preload: [author: a1]>
 
   # Nested entities
   iex> Quarry.build!(Quarry.Post, load: [comments: :user])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment, join: u1 in assoc(c0, :user), as: :post_comment_user, preload: [user: u1]>]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment, left_join: u1 in assoc(c0, :user), as: :post_comment_user, preload: [user: u1]>]>
 
   # List of nested entities
   iex> Quarry.build!(Quarry.Post, load: [author: [:user, :posts]])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, join: u2 in assoc(a1, :user), as: :post_author_user, preload: [author: [posts: #Ecto.Query<from p0 in Quarry.Post, as: :post_author_post>]], preload: [author: {a1, user: u2}]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, left_join: u2 in assoc(a1, :user), as: :post_author_user, preload: [author: [posts: #Ecto.Query<from p0 in Quarry.Post, as: :post_author_post>]], preload: [author: {a1, user: u2}]>
 
   # Use Quarry on nested has_many association
   iex> Quarry.build!(Quarry.Post, load: [comments: [filter: %{body: "comment"}, load: :user]])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment, join: u1 in assoc(c0, :user), as: :post_comment_user, where: as(:post_comment).body == ^"comment", preload: [user: u1]>]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, preload: [comments: #Ecto.Query<from c0 in Quarry.Comment, as: :post_comment, left_join: u1 in assoc(c0, :user), as: :post_comment_user, where: as(:post_comment).body == ^"comment", preload: [user: u1]>]>
   ```
 
   ### Sort examples
@@ -96,11 +96,11 @@ defmodule Quarry do
 
   # Nested fields
   iex> Quarry.build!(Quarry.Post, sort: [[:author, :publisher], :title, [:author, :user, :name]])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, join: u2 in assoc(a1, :user), as: :post_author_user, order_by: [asc: as(:post_author).publisher], order_by: [asc: as(:post).title], order_by: [asc: as(:post_author_user).name]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, left_join: u2 in assoc(a1, :user), as: :post_author_user, order_by: [asc: as(:post_author).publisher], order_by: [asc: as(:post).title], order_by: [asc: as(:post_author_user).name]>
 
   # Descending sort
   iex> Quarry.build!(Quarry.Post, sort: [:title, desc: :body, desc: [:author, :publisher]])
-  #Ecto.Query<from p0 in Quarry.Post, as: :post, join: a1 in assoc(p0, :author), as: :post_author, order_by: [asc: as(:post).title], order_by: [desc: as(:post).body], order_by: [desc: as(:post_author).publisher]>
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, order_by: [asc: as(:post).title], order_by: [desc: as(:post).body], order_by: [desc: as(:post_author).publisher]>
   ```
 
   ### Limit example

@@ -39,7 +39,7 @@ defmodule Quarry.SortTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         order_by: [asc: as(:post_author).publisher]
       )
@@ -60,7 +60,7 @@ defmodule Quarry.SortTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         order_by: [asc: as(:post).title],
         order_by: [asc: as(:post_author).publisher]
@@ -80,7 +80,7 @@ defmodule Quarry.SortTest do
     expected =
       from(p in Post,
         as: :post,
-        join: a in assoc(p, :author),
+        left_join: a in assoc(p, :author),
         as: :post_author,
         order_by: [desc: as(:post_author).publisher]
       )
