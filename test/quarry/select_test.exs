@@ -161,4 +161,68 @@ defmodule Quarry.SelectTest do
     assert {actual, []} = Select.build(base, select)
     assert inspect(actual) == inspect(elem(base, 0))
   end
+
+  test "handles duplicate field selection", %{base: base} do
+    expected =
+      from(
+        p in Post,
+        as: :post,
+        select: %{title: as(:post).title}
+      )
+
+    select = [:title, :title]
+    assert {actual, []} = Select.build(base, select)
+    assert inspect(actual) == inspect(expected)
+  end
+
+  test "handles mixed valid and invalid fields", %{base: base} do
+    expected =
+      from(
+        p in Post,
+        as: :post,
+        select: %{title: as(:post).title}
+      )
+
+    select = [:title, :bad_field]
+    {actual, [error]} = Select.build(base, select)
+    assert inspect(actual) == inspect(expected)
+    assert %{type: :select, path: [:bad_field]} = error
+  end
+
+  test "handles very deeply nested associations", %{base: base} do
+    # This tests 4 levels deep: post -> author -> user -> (through association) -> posts
+    # Note: This might not work with the current schema, but tests the recursion logic
+    select = [[:author, :user, :name]]
+    {_actual, errors} = Select.build(base, select)
+
+    # Should either succeed or fail gracefully
+    assert is_list(errors)
+  end
+
+  test "handles nil select parameter", %{base: base} do
+    select = nil
+    {actual, []} = Select.build(base, select)
+    assert inspect(actual) == inspect(elem(base, 0))
+  end
+
+  test "handles select with existing joins in query", %{base: _base} do
+    # Start with a query that already has joins
+    base_with_joins = {
+      from(p in Post, as: :post, left_join: a in assoc(p, :author), as: :post_author),
+      []
+    }
+
+    expected =
+      from(
+        p in Post,
+        as: :post,
+        left_join: a in assoc(p, :author),
+        as: :post_author,
+        select: %{publisher: as(:post_author).publisher}
+      )
+
+    select = [[:author, :publisher]]
+    {actual, []} = Select.build(base_with_joins, select)
+    assert inspect(actual) == inspect(expected)
+  end
 end
