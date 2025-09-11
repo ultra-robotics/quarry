@@ -11,7 +11,7 @@ defmodule Quarry do
   """
   require Ecto.Query
 
-  alias Quarry.{From, Filter, Load, Sort}
+  alias Quarry.{From, Filter, Load, Sort, Select}
 
   @type operation :: :lt | :gt | :lte | :gte | :starts_with | :ends_with
   @type filter_param :: String.t() | number
@@ -19,15 +19,17 @@ defmodule Quarry do
   @type filter :: %{optional(atom()) => filter_param() | tuple_filter_param()}
   @type load :: atom() | [atom() | keyword(load())]
   @type sort :: atom() | [atom() | [atom()] | {:asc | :desc, atom() | [atom()]}]
+  @type select :: atom() | [atom() | [atom()]]
   @type opts :: [
           filter: filter(),
           load: load(),
           sort: sort(),
+          select: select(),
           limit: integer(),
           offset: integer()
         ]
 
-  @type error :: %{type: :filter | :load, path: [atom()], message: String.t()}
+  @type error :: %{type: :filter | :load | :select, path: [atom()], message: String.t()}
 
   @doc """
   Builds a query for an entity type from parameters
@@ -117,6 +119,26 @@ defmodule Quarry do
   #Ecto.Query<from p0 in Quarry.Post, as: :post, limit: ^10, offset: ^20>
   ```
 
+  ### Select examples
+
+  ```elixir
+  # Single field
+  iex> Quarry.build!(Quarry.Post, select: :title)
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, select: %{title: as(:post).title}>
+
+  # Multiple fields
+  iex> Quarry.build!(Quarry.Post, select: [:id, :title])
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, select: %{id: as(:post).id, title: as(:post).title}>
+
+  # Nested field through association
+  iex> Quarry.build!(Quarry.Post, select: [[:author, :publisher]])
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, select: %{publisher: as(:post_author).publisher}>
+
+  # Mix of top level and nested fields
+  iex> Quarry.build!(Quarry.Post, select: [:title, [:author, :publisher]])
+  #Ecto.Query<from p0 in Quarry.Post, as: :post, left_join: a1 in assoc(p0, :author), as: :post_author, select: %{title: as(:post).title, publisher: as(:post_author).publisher}>
+  ```
+
   """
   @spec build!(atom(), opts()) :: Ecto.Query.t()
   def build!(schema, opts \\ []) do
@@ -132,6 +154,7 @@ defmodule Quarry do
       filter: %{},
       load: [],
       sort: [],
+      select: [],
       limit: nil,
       offset: nil
     }
@@ -143,6 +166,7 @@ defmodule Quarry do
     |> Filter.build(opts.filter, opts.load_path)
     |> Load.build(opts.load, opts.load_path)
     |> Sort.build(opts.sort, opts.load_path)
+    |> Select.build(opts.select, opts.load_path)
     |> limit(opts.limit)
     |> offset(opts.offset)
   end
