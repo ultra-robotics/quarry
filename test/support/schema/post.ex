@@ -4,6 +4,8 @@ defmodule Quarry.Post do
   schema "posts" do
     field :title, :string
     field :body, :string
+    field :published, :boolean
+    field :view_count, :integer
 
     belongs_to :author, Quarry.Author, foreign_key: :author_id
     has_many :comments, Quarry.Comment
