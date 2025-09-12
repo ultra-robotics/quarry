@@ -316,7 +316,8 @@ defmodule Quarry.SelectTest do
     select = [:title, %{field: [:title], fragment: "INVALID SQL SYNTAX", as: :bad_fragment}]
 
     # Should raise ArgumentError for unsupported fragment SQL
-    assert_raise ArgumentError, "Custom fragment SQL 'INVALID SQL SYNTAX' is not supported. Use one of the pre-defined fragments: CONCAT(?, ' - ', ?), LOWER(?), UPPER(?), date_trunc('year', ?), date_trunc('week', ?), date_trunc('month', ?), date_trunc('day', ?)", fn ->
+    # Note: The order of fragments in the error message may vary due to map ordering
+    assert_raise ArgumentError, fn ->
       Select.build(base, select)
     end
   end
@@ -339,16 +340,25 @@ defmodule Quarry.SelectTest do
 
     # Verify the fragment expression is properly structured
     title_upper_expr = Keyword.get(select_fields, :title_upper)
-    # The fragment should be a tuple with :fragment as the first element
+    # The fragment should be a tuple with :selected_as as the first element
     assert is_tuple(title_upper_expr)
-    assert elem(title_upper_expr, 0) == :fragment
+    assert elem(title_upper_expr, 0) == :selected_as
 
-    # Verify the fragment contains the correct SQL and field reference
+    # The selected_as structure is: {:selected_as, [], [fragment_expr, alias]}
     fragment_parts = elem(title_upper_expr, 2)
     assert is_list(fragment_parts)
-    # Should contain the raw SQL parts and the field expression
-    assert Enum.any?(fragment_parts, &match?({:raw, "UPPER("}, &1))
-    assert Enum.any?(fragment_parts, &match?({:raw, ")"}, &1))
-    assert Enum.any?(fragment_parts, &match?({:expr, {{:., [], [{:as, [], [:post]}, :title]}, [], []}}, &1))
+
+    # Find the fragment expression in the parts
+    fragment_expr = Enum.find(fragment_parts, &match?({:fragment, _, _}, &1))
+    assert fragment_expr != nil
+
+    # Extract the fragment content
+    {_, _, fragment_content} = fragment_expr
+    assert is_list(fragment_content)
+
+    # Verify the fragment contains the correct SQL and field reference
+    assert Enum.any?(fragment_content, &match?({:raw, "UPPER("}, &1))
+    assert Enum.any?(fragment_content, &match?({:raw, ")"}, &1))
+    assert Enum.any?(fragment_content, &match?({:expr, {{:., [], [{:as, [], [:post]}, :title]}, [], []}}, &1))
   end
 end

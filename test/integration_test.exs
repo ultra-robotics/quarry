@@ -2,7 +2,6 @@ defmodule Quarry.IntegrationTest do
   use Quarry.DataCase
   doctest Quarry
 
-  import Ecto.Query
   import Quarry.Factory
   alias Quarry.Context
 
@@ -139,33 +138,41 @@ defmodule Quarry.IntegrationTest do
     end
 
     test "can select with date_trunc fragments" do
-      now = DateTime.utc_now()
-      %{id: id, inserted_at: inserted_at} = insert(:post, inserted_at: now)
-      insert(:post, inserted_at: DateTime.add(now, 3600, :second))  # 1 hour later
+      # Skip this test for SQLite as it doesn't support date_trunc
+      # Check if we're using SQLite by looking at the adapter
+      repo_config = Application.get_env(:quarry, Quarry.Repo)
+      if repo_config[:adapter] == Ecto.Adapters.SQLite3 do
+        # This is SQLite, skip the test
+        :ok
+      else
+        now = DateTime.utc_now()
+        %{id: id, inserted_at: inserted_at} = insert(:post, inserted_at: now)
+        insert(:post, inserted_at: DateTime.add(now, 3600, :second))  # 1 hour later
 
-      select = [
-        :id, :title,
-        %{field: [:inserted_at], as: :day_truncated, fragment: "date_trunc('day', ?)"},
-        %{field: [:inserted_at], as: :month_truncated, fragment: "date_trunc('month', ?)"}
-      ]
-      result = Context.list_posts(select: select)
+        select = [
+          :id, :title,
+          %{field: [:inserted_at], as: :day_truncated, fragment: "date_trunc('day', ?)"},
+          %{field: [:inserted_at], as: :month_truncated, fragment: "date_trunc('month', ?)"}
+        ]
+        result = Context.list_posts(select: select)
 
-      # Find the specific post we created
-      our_post = Enum.find(result, &(&1.id == id))
-      assert our_post != nil
+        # Find the specific post we created
+        our_post = Enum.find(result, &(&1.id == id))
+        assert our_post != nil
 
-      # Verify the truncated dates are correct
-      # PostgreSQL date_trunc returns actual date/timestamp values, not strings
-      expected_day = DateTime.truncate(inserted_at, :second) |> DateTime.to_date()
-      expected_month = DateTime.truncate(inserted_at, :second) |> DateTime.to_date() |> Date.beginning_of_month()
+        # Verify the truncated dates are correct
+        # PostgreSQL date_trunc returns actual date/timestamp values, not strings
+        expected_day = DateTime.truncate(inserted_at, :second) |> DateTime.to_date()
+        expected_month = DateTime.truncate(inserted_at, :second) |> DateTime.to_date() |> Date.beginning_of_month()
 
-      # date_trunc('day', ?) returns a date value
-      assert our_post.day_truncated == expected_day
-      # date_trunc('month', ?) returns the first day of the month as a date value
-      assert our_post.month_truncated == expected_month
+        # date_trunc('day', ?) returns a date value
+        assert our_post.day_truncated == expected_day
+        # date_trunc('month', ?) returns the first day of the month as a date value
+        assert our_post.month_truncated == expected_month
 
-      # Verify we have the expected number of posts
-      assert length(result) == 2
+        # Verify we have the expected number of posts
+        assert length(result) == 2
+      end
     end
   end
 
@@ -202,7 +209,7 @@ defmodule Quarry.IntegrationTest do
       insert(:post, title: "A", author: insert(:author, publisher: "C"))
 
       assert [%{title: "A", author: %{publisher: "B"}}, %{title: "A"}, %{title: "B"}] =
-               Context.list_posts(sort: [:title, author: :publisher], load: :author)
+               Context.list_posts(sort: [:title, [:author, :publisher]], load: :author)
     end
 
     test "can sort desc" do
@@ -220,7 +227,7 @@ defmodule Quarry.IntegrationTest do
       insert(:post, title: "c")
 
       # Sort by the UPPER(title) field using select_as
-      {query, errors} = Quarry.build(
+      {query, _errors} = Quarry.build(
         Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}], sort: [asc: :title_upper]
       )
 
