@@ -88,6 +88,41 @@ defmodule Quarry.IntegrationTest do
     end
   end
 
+  describe "select" do
+    test "can select with basic fragment" do
+      %{id: id, title: title} = insert(:post, title: "Hello World")
+      insert(:post, title: "another post")
+
+      select = [:title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
+      result = Context.list_posts(select: select)
+
+      assert [%{id: ^id, title: ^title, title_upper: "HELLO WORLD"}] = result
+    end
+
+    test "can select with nested fragment" do
+      user = insert(:user, name: "john doe")
+      author = insert(:author, user: user)
+      %{id: id} = insert(:post, author: author)
+      insert(:post, author: insert(:author, user: insert(:user, name: "jane smith")))
+
+      select = [%{field: [:author, :user, :name], as: :author_name_lower, fragment: "LOWER(?)"}]
+      result = Context.list_posts(select: select)
+
+      assert [%{id: ^id, author_name_lower: "john doe"}] = result
+    end
+
+    test "can mix regular fields and fragments" do
+      user = insert(:user, name: "test user")
+      author = insert(:author, user: user, publisher: "test publisher")
+      %{id: id, title: title} = insert(:post, author: author, title: "Test Post")
+
+      select = [:title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
+      result = Context.list_posts(select: select)
+
+      assert [%{id: ^id, title: ^title, publisher: "test publisher", author_name_upper: "TEST USER"}] = result
+    end
+  end
+
   describe "sort" do
     test "can order by top level attribute" do
       insert(:post, title: "B")

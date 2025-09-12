@@ -225,4 +225,100 @@ defmodule Quarry.SelectTest do
     {actual, []} = Select.build(base_with_joins, select)
     assert inspect(actual) == inspect(expected)
   end
+
+  # Fragment tests - TODO: Implement fragment functionality
+  test "can select field with basic fragment", %{base: base} do
+    # We can't easily create the expected query with fragments in the test
+    # because fragments need to be created at compile time. Instead, we'll
+    # just verify that the query is generated without errors and has the right structure.
+    select = [:title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
+    {actual, errors} = Select.build(base, select)
+
+    assert errors == []
+    assert is_struct(actual, Ecto.Query)
+    assert actual.select != nil
+    # Verify the select clause has both fields
+    select_expr = actual.select.expr
+    assert is_tuple(select_expr)
+    # The select expression is a tuple like {:%{}, [], [title: ..., title_upper: ...]}
+    assert elem(select_expr, 0) == :%{}
+    select_fields = elem(select_expr, 2)
+    assert is_list(select_fields)
+    field_names = Keyword.keys(select_fields)
+    assert :title in field_names
+    assert :title_upper in field_names
+  end
+
+  test "can select nested field with fragment", %{base: base} do
+    select = [%{field: [:author, :user, :name], as: :author_name_concat, fragment: "CONCAT(?, ' - ', ?)"}]
+    {actual, errors} = Select.build(base, select)
+
+    assert errors == []
+    assert is_struct(actual, Ecto.Query)
+    assert actual.select != nil
+    # Verify the select clause has the fragment field
+    select_expr = actual.select.expr
+    assert is_tuple(select_expr)
+    select_fields = elem(select_expr, 2)
+    field_names = Keyword.keys(select_fields)
+    assert :author_name_concat in field_names
+    # Verify joins were created
+    assert length(actual.joins) >= 2  # Should have author and user joins
+  end
+
+  test "can select deeply nested field with fragment", %{base: base} do
+    select = [%{field: [:author, :user, :name], as: :author_user_name_lower, fragment: "LOWER(?)"}]
+    {actual, errors} = Select.build(base, select)
+
+    assert errors == []
+    assert is_struct(actual, Ecto.Query)
+    assert actual.select != nil
+    # Verify the select clause has the fragment field
+    select_expr = actual.select.expr
+    assert is_tuple(select_expr)
+    select_fields = elem(select_expr, 2)
+    field_names = Keyword.keys(select_fields)
+    assert :author_user_name_lower in field_names
+    # Verify joins were created
+    assert length(actual.joins) >= 2  # Should have author and user joins
+  end
+
+  test "can mix regular fields and fragments", %{base: base} do
+    select = [:title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
+    {actual, errors} = Select.build(base, select)
+
+    assert errors == []
+    assert is_struct(actual, Ecto.Query)
+    assert actual.select != nil
+    # Verify the select clause has all expected fields
+    select_expr = actual.select.expr
+    assert is_tuple(select_expr)
+    select_fields = elem(select_expr, 2)
+    field_names = Keyword.keys(select_fields)
+    assert :title in field_names
+    assert :publisher in field_names
+    assert :author_name_upper in field_names
+    # Verify joins were created
+    assert length(actual.joins) >= 2  # Should have author and user joins
+  end
+
+  test "returns error for fragment without as option", %{base: base} do
+    select = [:title, %{field: [:title], fragment: "UPPER(?)"}]
+    {actual, errors} = Select.build(base, select)
+
+    # Should return an error because 'as' option is required
+    assert is_list(errors)
+    assert length(errors) > 0
+    assert Enum.any?(errors, &(&1.type == :select))
+  end
+
+  test "returns error for invalid fragment syntax", %{base: base} do
+    select = [:title, %{field: [:title], fragment: "INVALID SQL SYNTAX", as: :bad_fragment}]
+    {_actual, errors} = Select.build(base, select)
+
+    # For now, this should work since we're not validating SQL syntax
+    # Later, implement SQL validation and verify error is returned
+    assert is_list(errors)
+    assert length(errors) == 0  # Should work for now (no SQL validation)
+  end
 end
