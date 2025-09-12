@@ -220,9 +220,9 @@ defmodule Quarry.IntegrationTest do
       insert(:post, title: "c")
 
       # Sort by the UPPER(title) field using select_as
-      result = Quarry.build!(
+      result = Quarry.build(
         Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}], sort: [asc: :title_upper]
-      ) |> Quarry.Repo.all()
+      )
 
       # Should be sorted by uppercase values: A, b, c
       assert [%{title_upper: "A"}, %{title_upper: "B"}, %{title_upper: "C"}] = result
