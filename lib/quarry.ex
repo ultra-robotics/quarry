@@ -165,8 +165,8 @@ defmodule Quarry do
     |> From.build(opts.binding_prefix)
     |> Filter.build(opts.filter, opts.load_path)
     |> Load.build(opts.load, opts.load_path)
-    |> Sort.build(opts.sort, opts.load_path)
     |> Select.build(opts.select, opts.load_path)
+    |> Sort.build(opts.sort, opts.load_path)
     |> limit(opts.limit)
     |> offset(opts.offset)
   end

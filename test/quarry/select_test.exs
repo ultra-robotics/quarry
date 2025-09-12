@@ -320,4 +320,35 @@ defmodule Quarry.SelectTest do
       Select.build(base, select)
     end
   end
+
+  # Test that Quarry.build correctly handles fragments with as: option
+  test "Quarry.build creates select_as for fragments with as option" do
+    # Test that the generated query has the correct select_as structure
+    # Use a list format for the field path as that's what the implementation expects
+    {query, []} = Quarry.build(Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}])
+
+    # Verify the query has a select clause
+    assert query.select != nil
+
+    # Verify the select expression contains the aliased field
+    select_expr = query.select.expr
+    assert is_tuple(select_expr)
+    select_fields = elem(select_expr, 2)
+    field_names = Keyword.keys(select_fields)
+    assert :title_upper in field_names
+
+    # Verify the fragment expression is properly structured
+    title_upper_expr = Keyword.get(select_fields, :title_upper)
+    # The fragment should be a tuple with :fragment as the first element
+    assert is_tuple(title_upper_expr)
+    assert elem(title_upper_expr, 0) == :fragment
+
+    # Verify the fragment contains the correct SQL and field reference
+    fragment_parts = elem(title_upper_expr, 2)
+    assert is_list(fragment_parts)
+    # Should contain the raw SQL parts and the field expression
+    assert Enum.any?(fragment_parts, &match?({:raw, "UPPER("}, &1))
+    assert Enum.any?(fragment_parts, &match?({:raw, ")"}, &1))
+    assert Enum.any?(fragment_parts, &match?({:expr, {{:., [], [{:as, [], [:post]}, :title]}, [], []}}, &1))
+  end
 end

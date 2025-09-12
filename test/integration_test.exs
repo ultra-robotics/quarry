@@ -2,6 +2,7 @@ defmodule Quarry.IntegrationTest do
   use Quarry.DataCase
   doctest Quarry
 
+  import Ecto.Query
   import Quarry.Factory
   alias Quarry.Context
 
@@ -211,6 +212,20 @@ defmodule Quarry.IntegrationTest do
 
       assert [%{title: "C"}, %{title: "B"}, %{title: "A"}] =
                Context.list_posts(sort: [desc: :title])
+    end
+
+    test "can sort by select_as field" do
+      insert(:post, title: "b")
+      insert(:post, title: "A")
+      insert(:post, title: "c")
+
+      # Sort by the UPPER(title) field using select_as
+      result = Quarry.build!(
+        Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}], sort: [asc: :title_upper]
+      ) |> Quarry.Repo.all()
+
+      # Should be sorted by uppercase values: A, b, c
+      assert [%{title_upper: "A"}, %{title_upper: "B"}, %{title_upper: "C"}] = result
     end
   end
 end

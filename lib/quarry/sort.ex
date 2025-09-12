@@ -6,8 +6,8 @@ defmodule Quarry.Sort do
 
   @sort_direction [:asc, :desc]
 
-  @spec build({Ecto.Query.t(), [Quarry.error()]}, Quarry.sort()) ::
-          {Ecto.Query.t(), [Qurry.error()]}
+  @spec build({Ecto.Query.t(), [Quarry.error()]}, Quarry.sort(), [atom()]) ::
+          {Ecto.Query.t(), [Quarry.error()]}
   def build({query, errors}, keys, load_path \\ []) do
     root_binding = From.get_root_binding(query)
     schema = From.get_root_schema(query)
@@ -61,13 +61,20 @@ defmodule Quarry.Sort do
   end
 
   defp sort_key(field_name, dir, join_deps, state) when is_atom(field_name) do
-    if field_name in state[:schema].__schema__(:fields) and dir in @sort_direction do
-      {query, join_binding} = Join.join_dependencies(state[:query], state[:binding], join_deps)
-      query = Ecto.Query.order_by(query, [{^dir, field(as(^join_binding), ^field_name)}])
-      {query, state[:errors]}
-    else
-      error = build_error(field_name, join_deps, state)
-      {state[:query], [error | state[:errors]]}
+    cond do
+      field_name in state[:schema].__schema__(:fields) and dir in @sort_direction ->
+        {query, join_binding} = Join.join_dependencies(state[:query], state[:binding], join_deps)
+        query = Ecto.Query.order_by(query, [{^dir, field(as(^join_binding), ^field_name)}])
+        {query, state[:errors]}
+
+      field_name in state[:select_aliases] and dir in @sort_direction ->
+        # Use select_as for select aliases
+        query = Ecto.Query.order_by(state[:query], [{^dir, select_as(^field_name)}])
+        {query, state[:errors]}
+
+      true ->
+        error = build_error(field_name, join_deps, state)
+        {state[:query], [error | state[:errors]]}
     end
   end
 
@@ -78,5 +85,20 @@ defmodule Quarry.Sort do
       load_path: Enum.reverse(state[:load_path]),
       message: "Quarry couldn't find field \"#{field}\" on Ecto schema \"#{state[:schema]}\""
     }
+  end
+
+  # Extract select aliases from the query's select clause
+  defp extract_select_aliases(query) do
+    case query.select do
+      nil -> []
+      select ->
+        case select.expr do
+          {:%{}, [], select_fields} ->
+            # Extract field names from the select map
+            Keyword.keys(select_fields)
+          _ ->
+            []
+        end
+    end
   end
 end
