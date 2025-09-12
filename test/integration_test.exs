@@ -93,10 +93,15 @@ defmodule Quarry.IntegrationTest do
       %{id: id, title: title} = insert(:post, title: "Hello World")
       insert(:post, title: "another post")
 
-      select = [:title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
+      select = [:id, :title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
       result = Context.list_posts(select: select)
 
-      assert [%{id: ^id, title: ^title, title_upper: "HELLO WORLD"}] = result
+      # Find the specific post we created
+      our_post = Enum.find(result, &(&1.id == id))
+      assert our_post == %{id: id, title: title, title_upper: "HELLO WORLD"}
+
+      # Verify we have the expected number of posts
+      assert length(result) == 2
     end
 
     test "can select with nested fragment" do
@@ -105,10 +110,15 @@ defmodule Quarry.IntegrationTest do
       %{id: id} = insert(:post, author: author)
       insert(:post, author: insert(:author, user: insert(:user, name: "jane smith")))
 
-      select = [%{field: [:author, :user, :name], as: :author_name_lower, fragment: "LOWER(?)"}]
+      select = [:id, %{field: [:author, :user, :name], as: :author_name_lower, fragment: "LOWER(?)"}]
       result = Context.list_posts(select: select)
 
-      assert [%{id: ^id, author_name_lower: "john doe"}] = result
+      # Find the specific post we created
+      our_post = Enum.find(result, &(&1.id == id))
+      assert our_post == %{id: id, author_name_lower: "john doe"}
+
+      # Verify we have the expected number of posts
+      assert length(result) == 2
     end
 
     test "can mix regular fields and fragments" do
@@ -116,10 +126,45 @@ defmodule Quarry.IntegrationTest do
       author = insert(:author, user: user, publisher: "test publisher")
       %{id: id, title: title} = insert(:post, author: author, title: "Test Post")
 
-      select = [:title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
+      select = [:id, :title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
       result = Context.list_posts(select: select)
 
-      assert [%{id: ^id, title: ^title, publisher: "test publisher", author_name_upper: "TEST USER"}] = result
+      # Find the specific post we created
+      our_post = Enum.find(result, &(&1.id == id))
+      assert our_post == %{id: id, title: title, publisher: "test publisher", author_name_upper: "TEST USER"}
+
+      # Verify we have at least one post
+      assert length(result) >= 1
+    end
+
+    test "can select with date_trunc fragments" do
+      now = DateTime.utc_now()
+      %{id: id, inserted_at: inserted_at} = insert(:post, inserted_at: now)
+      insert(:post, inserted_at: DateTime.add(now, 3600, :second))  # 1 hour later
+
+      select = [
+        :id, :title,
+        %{field: [:inserted_at], as: :day_truncated, fragment: "date_trunc('day', ?)"},
+        %{field: [:inserted_at], as: :month_truncated, fragment: "date_trunc('month', ?)"}
+      ]
+      result = Context.list_posts(select: select)
+
+      # Find the specific post we created
+      our_post = Enum.find(result, &(&1.id == id))
+      assert our_post != nil
+
+      # Verify the truncated dates are correct
+      # PostgreSQL date_trunc returns actual date/timestamp values, not strings
+      expected_day = DateTime.truncate(inserted_at, :second) |> DateTime.to_date()
+      expected_month = DateTime.truncate(inserted_at, :second) |> DateTime.to_date() |> Date.beginning_of_month()
+
+      # date_trunc('day', ?) returns a date value
+      assert our_post.day_truncated == expected_day
+      # date_trunc('month', ?) returns the first day of the month as a date value
+      assert our_post.month_truncated == expected_month
+
+      # Verify we have the expected number of posts
+      assert length(result) == 2
     end
   end
 

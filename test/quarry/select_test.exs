@@ -304,7 +304,7 @@ defmodule Quarry.SelectTest do
 
   test "returns error for fragment without as option", %{base: base} do
     select = [:title, %{field: [:title], fragment: "UPPER(?)"}]
-    {actual, errors} = Select.build(base, select)
+    {_actual, errors} = Select.build(base, select)
 
     # Should return an error because 'as' option is required
     assert is_list(errors)
@@ -312,13 +312,12 @@ defmodule Quarry.SelectTest do
     assert Enum.any?(errors, &(&1.type == :select))
   end
 
-  test "returns error for invalid fragment syntax", %{base: base} do
+  test "raises error for invalid fragment syntax", %{base: base} do
     select = [:title, %{field: [:title], fragment: "INVALID SQL SYNTAX", as: :bad_fragment}]
-    {_actual, errors} = Select.build(base, select)
 
-    # For now, this should work since we're not validating SQL syntax
-    # Later, implement SQL validation and verify error is returned
-    assert is_list(errors)
-    assert length(errors) == 0  # Should work for now (no SQL validation)
+    # Should raise ArgumentError for unsupported fragment SQL
+    assert_raise ArgumentError, "Custom fragment SQL 'INVALID SQL SYNTAX' is not supported. Use one of the pre-defined fragments: CONCAT(?, ' - ', ?), LOWER(?), UPPER(?), date_trunc('year', ?), date_trunc('week', ?), date_trunc('month', ?), date_trunc('day', ?)", fn ->
+      Select.build(base, select)
+    end
   end
 end
