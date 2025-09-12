@@ -7,7 +7,7 @@ defmodule Quarry.Sort do
   @sort_direction [:asc, :desc]
 
   @spec build({Ecto.Query.t(), [Quarry.error()]}, Quarry.sort()) ::
-          {Ecto.Query.t(), [Qurry.error()]}
+          {Ecto.Query.t(), [Quarry.error()]}
   def build({query, errors}, keys, load_path \\ []) do
     root_binding = From.get_root_binding(query)
     schema = From.get_root_schema(query)
