@@ -39,7 +39,9 @@ defmodule Quarry.Select do
     |> Enum.reduce({elem(acc, 0), elem(acc, 1), %{}}, &maybe_select_field(&2, &1, state))
     |> then(fn {query, errors, select_map} ->
       if map_size(select_map) > 0 do
-        query = Ecto.Query.select(query, ^select_map)
+        query = Enum.reduce(select_map, query, fn {key, value}, acc_query ->
+          Ecto.Query.select_merge(acc_query, %{^key => value})
+        end)
         {query, errors}
       else
         {query, errors}
@@ -130,8 +132,8 @@ defmodule Quarry.Select do
   defp select_field({query, errors, select_map}, field_name, state) do
     {query, join_binding} = Join.join_dependencies(query, state[:binding], state[:path])
 
-    # Add field to select_map instead of calling Ecto.Query.select directly
-    select_expr = Ecto.Query.dynamic([], field(as(^join_binding), ^field_name))
+    # Add field to select_map using selected_as for proper naming
+    select_expr = Ecto.Query.dynamic([], selected_as(field(as(^join_binding), ^field_name), ^field_name))
     select_map = Map.put(select_map, field_name, select_expr)
 
     {query, errors, select_map}
@@ -144,8 +146,8 @@ defmodule Quarry.Select do
     if field_name in child_fields do
       {query, join_binding} = Join.join_dependencies(query, state[:binding], [association | state[:path]])
 
-      # Add field to select_map instead of calling Ecto.Query.select directly
-      select_expr = Ecto.Query.dynamic([], field(as(^join_binding), ^field_name))
+      # Add field to select_map using selected_as for proper naming
+      select_expr = Ecto.Query.dynamic([], selected_as(field(as(^join_binding), ^field_name), ^field_name))
       select_map = Map.put(select_map, field_name, select_expr)
 
       {query, errors, select_map}
