@@ -162,55 +162,27 @@ defmodule Quarry.Select do
           # Get the join binding for the field path
           {query, join_binding} = Join.join_dependencies(query, state[:binding], final_path)
 
+          query = if has_select?(query) do
+            query
+          else
+            Ecto.Query.select(query, %{})
+          end
           # Create the fragment expression and check if query already has a select clause
           query = case @fragments[fragment_sql] do
             :upper ->
-              if has_select?(query) do
-                Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
-              else
-                Ecto.Query.select(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
-              end
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :lower ->
-              if has_select?(query) do
-                Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("LOWER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
-              else
-                Ecto.Query.select(query, %{^as_name => selected_as(fragment("LOWER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
-              end
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("LOWER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :concat ->
-              fragment_expr = Ecto.Query.dynamic([], fragment("CONCAT(?, ' - ', ?)", field(as(^join_binding), ^final_field), field(as(^join_binding), ^final_field)))
-              if has_select?(query) do
-                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-              else
-                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-              end
-                 :date_trunc_day ->
-                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('day', ?)", field(as(^join_binding), ^final_field)))
-                   if has_select?(query) do
-                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   else
-                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   end
-                 :date_trunc_week ->
-                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('week', ?)", field(as(^join_binding), ^final_field)))
-                   if has_select?(query) do
-                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   else
-                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   end
-                 :date_trunc_month ->
-                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('month', ?)", field(as(^join_binding), ^final_field)))
-                   if has_select?(query) do
-                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   else
-                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   end
-                 :date_trunc_year ->
-                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('year', ?)", field(as(^join_binding), ^final_field)))
-                   if has_select?(query) do
-                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   else
-                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
-                   end
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("CONCAT(?, ' - ', ?)", field(as(^join_binding), ^final_field), field(as(^join_binding), ^final_field)), ^as_name)})
+            :date_trunc_day ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('day', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :date_trunc_week ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('week', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :date_trunc_month ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('month', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :date_trunc_year ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('year', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             nil ->
               # For custom fragments, we need to handle them differently
               # This is a limitation - we can't dynamically interpolate SQL strings

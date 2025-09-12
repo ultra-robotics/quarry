@@ -227,7 +227,6 @@ defmodule Quarry.IntegrationTest do
 
       result = Quarry.Repo.all(query)
 
-
       # Should be sorted by uppercase values: A, b, c
       assert [%{title_upper: "A"}, %{title_upper: "B"}, %{title_upper: "C"}] = result
     end
