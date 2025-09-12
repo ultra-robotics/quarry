@@ -16,7 +16,11 @@ defmodule Quarry.Select do
     "date_trunc('day', ?)" => :date_trunc_day,
     "date_trunc('week', ?)" => :date_trunc_week,
     "date_trunc('month', ?)" => :date_trunc_month,
-    "date_trunc('year', ?)" => :date_trunc_year
+    "date_trunc('year', ?)" => :date_trunc_year,
+    "COUNT(?)" => :count,
+    "SUM(?)" => :sum,
+    "AVG(?)" => :average,
+    "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)" => :median
   }
 
   @spec build({Ecto.Query.t(), [Quarry.error()]}, select(), [atom()]) ::
@@ -183,6 +187,14 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('month', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :date_trunc_year ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("date_trunc('year', ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :count ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("COUNT(?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :sum ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("SUM(?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :average ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :median ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             nil ->
               # For custom fragments, we need to handle them differently
               # This is a limitation - we can't dynamically interpolate SQL strings
