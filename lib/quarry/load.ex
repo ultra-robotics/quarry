@@ -83,16 +83,6 @@ defmodule Quarry.Load do
     {QueryStruct.add_preload(query, ordered_local_path, subquery), sub_errors ++ errors}
   end
 
-  defp get_target_schema(schema, [last_assoc]) do
-    assoc = schema.__schema__(:association, last_assoc)
-    assoc.queryable
-  end
-
-  defp get_target_schema(schema, [next_assoc | rest]) do
-    assoc = schema.__schema__(:association, next_assoc)
-    get_target_schema(assoc.queryable, rest)
-  end
-
   defp preload_tree({query, errors}, %{cardinality: :many} = association, children, state) do
     %{queryable: child_schema, field: assoc} = association
     binding = Keyword.get(state, :binding)
@@ -108,6 +98,16 @@ defmodule Quarry.Load do
     ordered_local_path = Enum.reverse([assoc | state[:local_path]])
 
     {QueryStruct.add_preload(query, ordered_local_path, subquery), sub_errors ++ errors}
+  end
+
+  defp get_target_schema(schema, [last_assoc]) do
+    assoc = schema.__schema__(:association, last_assoc)
+    assoc.queryable
+  end
+
+  defp get_target_schema(schema, [next_assoc | rest]) do
+    assoc = schema.__schema__(:association, next_assoc)
+    get_target_schema(assoc.queryable, rest)
   end
 
   defp extract_nested_opts(children) do

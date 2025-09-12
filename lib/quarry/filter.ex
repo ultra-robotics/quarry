@@ -5,7 +5,6 @@ defmodule Quarry.Filter do
   alias Quarry.{Join, From}
 
   @type filter :: %{optional(atom()) => String.t() | number() | filter()}
-
   @spec build({Ecto.Query.t(), [Quarry.error()]}, Quarry.filter(), [atom()]) ::
           {Ecto.Query.t(), [Quarry.error()]}
   def build({query, errors}, filters, load_path \\ []) do
