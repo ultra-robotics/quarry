@@ -165,18 +165,16 @@ defmodule Quarry.Select do
           # Create the fragment expression and check if query already has a select clause
           query = case @fragments[fragment_sql] do
             :upper ->
-              fragment_expr = Ecto.Query.dynamic([], fragment("UPPER(?)", field(as(^join_binding), ^final_field)))
               if has_select?(query) do
-                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
               else
-                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                Ecto.Query.select(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
               end
             :lower ->
-              fragment_expr = Ecto.Query.dynamic([], fragment("LOWER(?)", field(as(^join_binding), ^final_field)))
               if has_select?(query) do
-                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("LOWER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
               else
-                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                Ecto.Query.select(query, %{^as_name => selected_as(fragment("LOWER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
               end
             :concat ->
               fragment_expr = Ecto.Query.dynamic([], fragment("CONCAT(?, ' - ', ?)", field(as(^join_binding), ^final_field), field(as(^join_binding), ^final_field)))
