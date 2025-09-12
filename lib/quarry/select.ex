@@ -36,46 +36,36 @@ defmodule Quarry.Select do
   defp select_fields(acc, select_params, state) do
     select_params
     |> List.wrap()
-    |> Enum.reduce({elem(acc, 0), elem(acc, 1), %{}}, &maybe_select_field(&2, &1, state))
-    |> then(fn {query, errors, select_map} ->
-      if map_size(select_map) > 0 do
-        query = Enum.reduce(select_map, query, fn {key, value}, acc_query ->
-          Ecto.Query.select_merge(acc_query, %{^key => value})
-        end)
-        {query, errors}
-      else
-        {query, errors}
-      end
-    end)
+    |> Enum.reduce(acc, &maybe_select_field(&2, &1, state))
   end
 
-  defp maybe_select_field({query, errors, select_map}, field_name, state) when is_atom(field_name) do
+  defp maybe_select_field({query, errors}, field_name, state) when is_atom(field_name) do
     fields = state[:schema].__schema__(:fields)
 
     if field_name in fields do
-      select_field({query, errors, select_map}, field_name, state)
+      select_field({query, errors}, field_name, state)
     else
-      {query, [build_error(field_name, state) | errors], select_map}
+      {query, [build_error(field_name, state) | errors]}
     end
   end
 
-  defp maybe_select_field({query, errors, select_map}, [field_name], state) when is_atom(field_name) do
+  defp maybe_select_field({query, errors}, [field_name], state) when is_atom(field_name) do
     # Handle single field in list format like [:author_id]
-    maybe_select_field({query, errors, select_map}, field_name, state)
+    maybe_select_field({query, errors}, field_name, state)
   end
 
-  defp maybe_select_field({query, errors, select_map}, [association, field_name], state) when is_atom(association) and is_atom(field_name) do
+  defp maybe_select_field({query, errors}, [association, field_name], state) when is_atom(association) and is_atom(field_name) do
     # Handle nested field like [:author, :id]
     associations = state[:schema].__schema__(:associations)
 
     if association in associations do
-      select_nested_field({query, errors, select_map}, association, field_name, state)
+      select_nested_field({query, errors}, association, field_name, state)
     else
-      {query, [build_error(association, state) | errors], select_map}
+      {query, [build_error(association, state) | errors]}
     end
   end
 
-  defp maybe_select_field({query, errors, select_map}, [association | rest], state) when is_atom(association) and is_list(rest) do
+  defp maybe_select_field({query, errors}, [association | rest], state) when is_atom(association) and is_list(rest) do
     # Handle deeply nested field like [:author, :user, :name]
     associations = state[:schema].__schema__(:associations)
 
@@ -84,29 +74,29 @@ defmodule Quarry.Select do
       child_state = Keyword.put(state, :schema, child_schema)
       child_state = Keyword.update!(child_state, :path, &[association | &1])
 
-      maybe_select_field({query, errors, select_map}, rest, child_state)
+      maybe_select_field({query, errors}, rest, child_state)
     else
-      {query, [build_error(association, state) | errors], select_map}
+      {query, [build_error(association, state) | errors]}
     end
   end
 
-  defp maybe_select_field({query, errors, select_map}, %{field: field_path, as: as_name, fragment: fragment_sql}, state) do
+  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, fragment: fragment_sql}, state) do
     # Handle fragment with field path like %{field: [:author, :name], as: :author_name_upper, fragment: "UPPER(?)"}
-    select_fragment({query, errors, select_map}, field_path, as_name, fragment_sql, state)
+    select_fragment({query, errors}, field_path, as_name, fragment_sql, state)
   end
 
-  defp maybe_select_field({query, errors, select_map}, %{field: _field_path, fragment: _fragment_sql}, state) do
+  defp maybe_select_field({query, errors}, %{field: _field_path, fragment: _fragment_sql}, state) do
     # Handle fragment without required :as option
-    {query, [build_fragment_error("Missing required :as option", state) | errors], select_map}
+    {query, [build_fragment_error("Missing required :as option", state) | errors]}
   end
 
-  defp maybe_select_field({query, errors, select_map}, %{as: _as_name, fragment: _fragment_sql}, state) do
+  defp maybe_select_field({query, errors}, %{as: _as_name, fragment: _fragment_sql}, state) do
     # Handle fragment without required :field option
-    {query, [build_fragment_error("Missing required :field option", state) | errors], select_map}
+    {query, [build_fragment_error("Missing required :field option", state) | errors]}
   end
 
-  defp maybe_select_field({query, errors, select_map}, field_name, state) do
-    {query, [build_error(field_name, state) | errors], select_map}
+  defp maybe_select_field({query, errors}, field_name, state) do
+    {query, [build_error(field_name, state) | errors]}
   end
 
   defp build_error(field_name, state) do
@@ -129,34 +119,40 @@ defmodule Quarry.Select do
     }
   end
 
-  defp select_field({query, errors, select_map}, field_name, state) do
+  defp select_field({query, errors}, field_name, state) do
     {query, join_binding} = Join.join_dependencies(query, state[:binding], state[:path])
 
-    # Add field to select_map using selected_as for proper naming
-    select_expr = Ecto.Query.dynamic([], selected_as(field(as(^join_binding), ^field_name), ^field_name))
-    select_map = Map.put(select_map, field_name, select_expr)
+    # Check if query already has a select clause
+    query = if has_select?(query) do
+      Ecto.Query.select_merge(query, %{^field_name => field(as(^join_binding), ^field_name)})
+    else
+      Ecto.Query.select(query, %{^field_name => field(as(^join_binding), ^field_name)})
+    end
 
-    {query, errors, select_map}
+    {query, errors}
   end
 
-  defp select_nested_field({query, errors, select_map}, association, field_name, state) do
+  defp select_nested_field({query, errors}, association, field_name, state) do
     child_schema = state[:schema].__schema__(:association, association).related
     child_fields = child_schema.__schema__(:fields)
 
     if field_name in child_fields do
       {query, join_binding} = Join.join_dependencies(query, state[:binding], [association | state[:path]])
 
-      # Add field to select_map using selected_as for proper naming
-      select_expr = Ecto.Query.dynamic([], selected_as(field(as(^join_binding), ^field_name), ^field_name))
-      select_map = Map.put(select_map, field_name, select_expr)
+      # Check if query already has a select clause
+      query = if has_select?(query) do
+        Ecto.Query.select_merge(query, %{^field_name => field(as(^join_binding), ^field_name)})
+      else
+        Ecto.Query.select(query, %{^field_name => field(as(^join_binding), ^field_name)})
+      end
 
-      {query, errors, select_map}
+      {query, errors}
     else
-      {query, [build_error(field_name, state) | errors], select_map}
+      {query, [build_error(field_name, state) | errors]}
     end
   end
 
-  defp select_fragment({query, errors, select_map}, field_path, as_name, fragment_sql, state) do
+  defp select_fragment({query, errors}, field_path, as_name, fragment_sql, state) do
     # Process the field path to get the final field and schema
     case process_field_path(field_path, state) do
       {:ok, final_field, final_schema, final_path} ->
@@ -166,37 +162,69 @@ defmodule Quarry.Select do
           # Get the join binding for the field path
           {query, join_binding} = Join.join_dependencies(query, state[:binding], final_path)
 
-          # Create the fragment expression using dynamic context
-          fragment_expr = case @fragments[fragment_sql] do
+          # Create the fragment expression and check if query already has a select clause
+          query = case @fragments[fragment_sql] do
             :upper ->
-              Ecto.Query.dynamic([], fragment("UPPER(?)", field(as(^join_binding), ^final_field)))
+              fragment_expr = Ecto.Query.dynamic([], fragment("UPPER(?)", field(as(^join_binding), ^final_field)))
+              if has_select?(query) do
+                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              else
+                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              end
             :lower ->
-              Ecto.Query.dynamic([], fragment("LOWER(?)", field(as(^join_binding), ^final_field)))
+              fragment_expr = Ecto.Query.dynamic([], fragment("LOWER(?)", field(as(^join_binding), ^final_field)))
+              if has_select?(query) do
+                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              else
+                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              end
             :concat ->
-              Ecto.Query.dynamic([], fragment("CONCAT(?, ' - ', ?)", field(as(^join_binding), ^final_field), field(as(^join_binding), ^final_field)))
+              fragment_expr = Ecto.Query.dynamic([], fragment("CONCAT(?, ' - ', ?)", field(as(^join_binding), ^final_field), field(as(^join_binding), ^final_field)))
+              if has_select?(query) do
+                Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              else
+                Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+              end
                  :date_trunc_day ->
-                   Ecto.Query.dynamic([], fragment("date_trunc('day', ?)", field(as(^join_binding), ^final_field)))
+                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('day', ?)", field(as(^join_binding), ^final_field)))
+                   if has_select?(query) do
+                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   else
+                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   end
                  :date_trunc_week ->
-                   Ecto.Query.dynamic([], fragment("date_trunc('week', ?)", field(as(^join_binding), ^final_field)))
+                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('week', ?)", field(as(^join_binding), ^final_field)))
+                   if has_select?(query) do
+                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   else
+                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   end
                  :date_trunc_month ->
-                   Ecto.Query.dynamic([], fragment("date_trunc('month', ?)", field(as(^join_binding), ^final_field)))
+                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('month', ?)", field(as(^join_binding), ^final_field)))
+                   if has_select?(query) do
+                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   else
+                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   end
                  :date_trunc_year ->
-                   Ecto.Query.dynamic([], fragment("date_trunc('year', ?)", field(as(^join_binding), ^final_field)))
+                   fragment_expr = Ecto.Query.dynamic([], fragment("date_trunc('year', ?)", field(as(^join_binding), ^final_field)))
+                   if has_select?(query) do
+                     Ecto.Query.select_merge(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   else
+                     Ecto.Query.select(query, %{^as_name => selected_as(^fragment_expr, ^as_name)})
+                   end
             nil ->
               # For custom fragments, we need to handle them differently
               # This is a limitation - we can't dynamically interpolate SQL strings
               raise ArgumentError, "Custom fragment SQL '#{fragment_sql}' is not supported. Use one of the pre-defined fragments: #{Map.keys(@fragments) |> Enum.join(", ")}"
           end
 
-          # Add fragment to select_map instead of calling Ecto.Query.select directly
-          select_map = Map.put(select_map, as_name, fragment_expr)
-
-          {query, errors, select_map}
+          {query, errors}
         else
-          {query, [build_error(final_field, state) | errors], select_map}
+          {query, [build_error(final_field, state) | errors]}
         end
       {:error, error_field} ->
-        {query, [build_error(error_field, state) | errors], select_map}
+        {query, [build_error(error_field, state) | errors]}
     end
   end
 
@@ -273,5 +301,8 @@ defmodule Quarry.Select do
       end
     end)
   end
+
+  defp has_select?(%Ecto.Query{select: nil}), do: false
+  defp has_select?(%Ecto.Query{}), do: true
 
 end
