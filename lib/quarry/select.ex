@@ -6,22 +6,7 @@ defmodule Quarry.Select do
   alias Quarry.{Join, From}
 
   @type select :: atom() | [atom() | [atom()]] | select_map()
-  @type select_map :: %{field: [atom()], as: atom(), fragment: String.t()}
-
-  # Registry of pre-defined fragments
-  @fragments %{
-    "UPPER(?)" => :upper,
-    "LOWER(?)" => :lower,
-    "CONCAT(?, ' - ', ?)" => :concat,
-    "date_trunc('day', ?)" => :date_trunc_day,
-    "date_trunc('week', ?)" => :date_trunc_week,
-    "date_trunc('month', ?)" => :date_trunc_month,
-    "date_trunc('year', ?)" => :date_trunc_year,
-    "COUNT(?)" => :count,
-    "SUM(?)" => :sum,
-    "AVG(?)" => :average,
-    "PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)" => :median
-  }
+  @type select_map :: %{field: [atom()], as: atom(), fragment: atom()}
 
   @spec build({Ecto.Query.t(), [Quarry.error()]}, select(), [atom()]) ::
           {Ecto.Query.t(), [Quarry.error()]}
@@ -84,17 +69,17 @@ defmodule Quarry.Select do
     end
   end
 
-  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, fragment: fragment_sql}, state) do
-    # Handle fragment with field path like %{field: [:author, :name], as: :author_name_upper, fragment: "UPPER(?)"}
-    select_fragment({query, errors}, field_path, as_name, fragment_sql, state)
+  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, fragment: fragment_atom}, state) when is_atom(fragment_atom) do
+    # Handle fragment with field path like %{field: [:author, :name], as: :author_name_upper, fragment: :upper}
+    select_fragment({query, errors}, field_path, as_name, fragment_atom, state)
   end
 
-  defp maybe_select_field({query, errors}, %{field: _field_path, fragment: _fragment_sql}, state) do
+  defp maybe_select_field({query, errors}, %{field: _field_path, fragment: _fragment_atom}, state) do
     # Handle fragment without required :as option
     {query, [build_fragment_error("Missing required :as option", state) | errors]}
   end
 
-  defp maybe_select_field({query, errors}, %{as: _as_name, fragment: _fragment_sql}, state) do
+  defp maybe_select_field({query, errors}, %{as: _as_name, fragment: _fragment_atom}, state) do
     # Handle fragment without required :field option
     {query, [build_fragment_error("Missing required :field option", state) | errors]}
   end
@@ -156,7 +141,7 @@ defmodule Quarry.Select do
     end
   end
 
-  defp select_fragment({query, errors}, field_path, as_name, fragment_sql, state) do
+  defp select_fragment({query, errors}, field_path, as_name, fragment_atom, state) do
     # Process the field path to get the final field and schema
     case process_field_path(field_path, state) do
       {:ok, final_field, final_schema, final_path} ->
@@ -171,8 +156,9 @@ defmodule Quarry.Select do
           else
             Ecto.Query.select(query, %{})
           end
-          # Create the fragment expression and check if query already has a select clause
-          query = case @fragments[fragment_sql] do
+
+          # Create the fragment expression based on the atom
+          query = case fragment_atom do
             :upper ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :lower ->
@@ -195,10 +181,9 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
-            nil ->
-              # For custom fragments, we need to handle them differently
-              # This is a limitation - we can't dynamically interpolate SQL strings
-              raise ArgumentError, "Custom fragment SQL '#{fragment_sql}' is not supported. Use one of the pre-defined fragments: #{Map.keys(@fragments) |> Enum.join(", ")}"
+            _ ->
+              # For unsupported fragments
+              raise ArgumentError, "Unsupported fragment '#{fragment_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median"
           end
 
           {query, errors}

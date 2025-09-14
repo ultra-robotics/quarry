@@ -93,7 +93,7 @@ defmodule Quarry.IntegrationTest do
       %{id: id, title: title} = insert(:post, title: "Hello World")
       insert(:post, title: "another post")
 
-      select = [:id, :title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
+      select = [:id, :title, %{field: [:title], as: :title_upper, fragment: :upper}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -110,7 +110,7 @@ defmodule Quarry.IntegrationTest do
       %{id: id} = insert(:post, author: author)
       insert(:post, author: insert(:author, user: insert(:user, name: "jane smith")))
 
-      select = [:id, %{field: [:author, :user, :name], as: :author_name_lower, fragment: "LOWER(?)"}]
+      select = [:id, %{field: [:author, :user, :name], as: :author_name_lower, fragment: :lower}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -126,7 +126,7 @@ defmodule Quarry.IntegrationTest do
       author = insert(:author, user: user, publisher: "test publisher")
       %{id: id, title: title} = insert(:post, author: author, title: "Test Post")
 
-      select = [:id, :title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
+      select = [:id, :title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: :upper}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -151,8 +151,8 @@ defmodule Quarry.IntegrationTest do
 
         select = [
           :id, :title,
-          %{field: [:inserted_at], as: :day_truncated, fragment: "date_trunc('day', ?)"},
-          %{field: [:inserted_at], as: :month_truncated, fragment: "date_trunc('month', ?)"}
+          %{field: [:inserted_at], as: :day_truncated, fragment: :date_trunc_day},
+          %{field: [:inserted_at], as: :month_truncated, fragment: :date_trunc_month}
         ]
         result = Context.list_posts(select: select)
 
@@ -228,7 +228,7 @@ defmodule Quarry.IntegrationTest do
 
       # Sort by the UPPER(title) field using select_as
       {query, _errors} = Quarry.build(
-        Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}], sort: [asc: :title_upper]
+        Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: :upper}], sort: [asc: :title_upper]
       )
 
 
