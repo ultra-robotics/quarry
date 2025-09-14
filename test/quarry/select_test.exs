@@ -231,7 +231,7 @@ defmodule Quarry.SelectTest do
     # We can't easily create the expected query with fragments in the test
     # because fragments need to be created at compile time. Instead, we'll
     # just verify that the query is generated without errors and has the right structure.
-    select = [:title, %{field: [:title], as: :title_upper, fragment: "UPPER(?)"}]
+    select = [:title, %{field: [:title], as: :title_upper, fragment: :upper}]
     {actual, errors} = Select.build(base, select)
 
     assert errors == []
@@ -250,7 +250,7 @@ defmodule Quarry.SelectTest do
   end
 
   test "can select nested field with fragment", %{base: base} do
-    select = [%{field: [:author, :user, :name], as: :author_name_concat, fragment: "CONCAT(?, ' - ', ?)"}]
+    select = [%{field: [:author, :user, :name], as: :author_name_concat, fragment: :concat}]
     {actual, errors} = Select.build(base, select)
 
     assert errors == []
@@ -267,7 +267,7 @@ defmodule Quarry.SelectTest do
   end
 
   test "can select deeply nested field with fragment", %{base: base} do
-    select = [%{field: [:author, :user, :name], as: :author_user_name_lower, fragment: "LOWER(?)"}]
+    select = [%{field: [:author, :user, :name], as: :author_user_name_lower, fragment: :lower}]
     {actual, errors} = Select.build(base, select)
 
     assert errors == []
@@ -284,7 +284,7 @@ defmodule Quarry.SelectTest do
   end
 
   test "can mix regular fields and fragments", %{base: base} do
-    select = [:title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: "UPPER(?)"}]
+    select = [:title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: :upper}]
     {actual, errors} = Select.build(base, select)
 
     assert errors == []
@@ -303,7 +303,7 @@ defmodule Quarry.SelectTest do
   end
 
   test "returns error for fragment without as option", %{base: base} do
-    select = [:title, %{field: [:title], fragment: "UPPER(?)"}]
+    select = [:title, %{field: [:title], fragment: :upper}]
     {_actual, errors} = Select.build(base, select)
 
     # Should return an error because 'as' option is required
@@ -313,7 +313,7 @@ defmodule Quarry.SelectTest do
   end
 
   test "raises error for invalid fragment syntax", %{base: base} do
-    select = [:title, %{field: [:title], fragment: "INVALID SQL SYNTAX", as: :bad_fragment}]
+    select = [:title, %{field: [:title], fragment: :invalid_fragment, as: :bad_fragment}]
 
     # Should raise ArgumentError for unsupported fragment SQL
     # Note: The order of fragments in the error message may vary due to map ordering
@@ -326,7 +326,7 @@ defmodule Quarry.SelectTest do
   test "Quarry.build creates select_as for fragments with as option" do
     # Test that the generated query has the correct select_as structure
     # Use a list format for the field path as that's what the implementation expects
-    {query, []} = Quarry.build(Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: "UPPER(?)"}])
+    {query, []} = Quarry.build(Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: :upper}])
 
     # Verify the query has a select clause
     assert query.select != nil
