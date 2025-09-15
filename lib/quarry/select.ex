@@ -181,17 +181,19 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :max ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("MAX(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             _ ->
               # For unsupported functions
-              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median"
+              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median, :max"
           end
 
           {query, errors}
         else
           {query, [build_error(final_field, state) | errors]}
         end
-      {:error, error_field} ->
-        {query, [build_error(error_field, state) | errors]}
+      {:error, error_field, error_state} ->
+        {query, [build_error(error_field, error_state) | errors]}
     end
   end
 
@@ -223,10 +225,10 @@ defmodule Quarry.Select do
       else
         # Field doesn't exist on the associated schema - this is an error
         # We don't automatically search through nested associations for two-level paths
-        {:error, field_name}
+        {:error, field_name, state}
       end
     else
-      {:error, association}
+      {:error, association, state}
     end
   end
 
@@ -240,12 +242,12 @@ defmodule Quarry.Select do
 
       process_field_path(rest, child_state)
     else
-      {:error, association}
+      {:error, association, state}
     end
   end
 
-  defp process_field_path(field_path, _state) do
-    {:error, field_path}
+  defp process_field_path(field_path, state) do
+    {:error, field_path, state}
   end
 
   defp find_field_through_associations(field_name, associations, state) do
