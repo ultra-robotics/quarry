@@ -26,13 +26,13 @@ defmodule Quarry.Sort do
       keys,
       acc,
       fn entry, {query, errors} ->
-        sort_key(entry, join_deps,
+        sort_key(entry, join_deps, [
           query: query,
           schema: state[:schema],
           binding: state[:binding],
           load_path: state[:load_path],
           errors: errors
-        )
+        ])
       end
     )
   end
