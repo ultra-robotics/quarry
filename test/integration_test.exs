@@ -89,11 +89,11 @@ defmodule Quarry.IntegrationTest do
   end
 
   describe "select" do
-    test "can select with basic fragment" do
+    test "can select with basic function" do
       %{id: id, title: title} = insert(:post, title: "Hello World")
       insert(:post, title: "another post")
 
-      select = [:id, :title, %{field: [:title], as: :title_upper, fragment: :upper}]
+      select = [:id, :title, %{field: [:title], as: :title_upper, function: :upper}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -104,13 +104,13 @@ defmodule Quarry.IntegrationTest do
       assert length(result) == 2
     end
 
-    test "can select with nested fragment" do
+    test "can select with nested function" do
       user = insert(:user, name: "john doe")
       author = insert(:author, user: user)
       %{id: id} = insert(:post, author: author)
       insert(:post, author: insert(:author, user: insert(:user, name: "jane smith")))
 
-      select = [:id, %{field: [:author, :user, :name], as: :author_name_lower, fragment: :lower}]
+      select = [:id, %{field: [:author, :user, :name], as: :author_name_lower, function: :lower}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -121,12 +121,12 @@ defmodule Quarry.IntegrationTest do
       assert length(result) == 2
     end
 
-    test "can mix regular fields and fragments" do
+    test "can mix regular fields and functions" do
       user = insert(:user, name: "test user")
       author = insert(:author, user: user, publisher: "test publisher")
       %{id: id, title: title} = insert(:post, author: author, title: "Test Post")
 
-      select = [:id, :title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, fragment: :upper}]
+      select = [:id, :title, [:author, :publisher], %{field: [:author, :user, :name], as: :author_name_upper, function: :upper}]
       result = Context.list_posts(select: select)
 
       # Find the specific post we created
@@ -137,7 +137,7 @@ defmodule Quarry.IntegrationTest do
       assert length(result) >= 1
     end
 
-    test "can select with date_trunc fragments" do
+    test "can select with date_trunc functions" do
       # Skip this test for SQLite as it doesn't support date_trunc
       # Check if we're using SQLite by looking at the adapter
       repo_config = Application.get_env(:quarry, Quarry.Repo)
@@ -151,8 +151,8 @@ defmodule Quarry.IntegrationTest do
 
         select = [
           :id, :title,
-          %{field: [:inserted_at], as: :day_truncated, fragment: :date_trunc_day},
-          %{field: [:inserted_at], as: :month_truncated, fragment: :date_trunc_month}
+          %{field: [:inserted_at], as: :day_truncated, function: :date_trunc_day},
+          %{field: [:inserted_at], as: :month_truncated, function: :date_trunc_month}
         ]
         result = Context.list_posts(select: select)
 
@@ -228,7 +228,7 @@ defmodule Quarry.IntegrationTest do
 
       # Sort by the UPPER(title) field using select_as
       {query, _errors} = Quarry.build(
-        Quarry.Post, select: [%{field: [:title], as: :title_upper, fragment: :upper}], sort: [asc: :title_upper]
+        Quarry.Post, select: [%{field: [:title], as: :title_upper, function: :upper}], sort: [asc: :title_upper]
       )
 
 

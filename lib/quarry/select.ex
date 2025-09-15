@@ -6,7 +6,7 @@ defmodule Quarry.Select do
   alias Quarry.{Join, From}
 
   @type select :: atom() | [atom() | [atom()]] | select_map()
-  @type select_map :: %{field: [atom()], as: atom(), fragment: atom()}
+  @type select_map :: %{field: [atom()], as: atom(), function: atom()}
 
   @spec build({Ecto.Query.t(), [Quarry.error()]}, select(), [atom()]) ::
           {Ecto.Query.t(), [Quarry.error()]}
@@ -69,19 +69,19 @@ defmodule Quarry.Select do
     end
   end
 
-  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, fragment: fragment_atom}, state) when is_atom(fragment_atom) do
-    # Handle fragment with field path like %{field: [:author, :name], as: :author_name_upper, fragment: :upper}
-    select_fragment({query, errors}, field_path, as_name, fragment_atom, state)
+  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, function: function_atom}, state) when is_atom(function_atom) do
+    # Handle function with field path like %{field: [:author, :name], as: :author_name_upper, function: :upper}
+    select_function({query, errors}, field_path, as_name, function_atom, state)
   end
 
-  defp maybe_select_field({query, errors}, %{field: _field_path, fragment: _fragment_atom}, state) do
-    # Handle fragment without required :as option
-    {query, [build_fragment_error("Missing required :as option", state) | errors]}
+  defp maybe_select_field({query, errors}, %{field: _field_path, function: _function_atom}, state) do
+    # Handle function without required :as option
+    {query, [build_function_error("Missing required :as option", state) | errors]}
   end
 
-  defp maybe_select_field({query, errors}, %{as: _as_name, fragment: _fragment_atom}, state) do
-    # Handle fragment without required :field option
-    {query, [build_fragment_error("Missing required :field option", state) | errors]}
+  defp maybe_select_field({query, errors}, %{as: _as_name, function: _function_atom}, state) do
+    # Handle function without required :field option
+    {query, [build_function_error("Missing required :field option", state) | errors]}
   end
 
   defp maybe_select_field({query, errors}, field_name, state) do
@@ -99,7 +99,7 @@ defmodule Quarry.Select do
     }
   end
 
-  defp build_fragment_error(message, state) do
+  defp build_function_error(message, state) do
     %{
       type: :select,
       path: Enum.reverse(state[:path]),
@@ -141,7 +141,7 @@ defmodule Quarry.Select do
     end
   end
 
-  defp select_fragment({query, errors}, field_path, as_name, fragment_atom, state) do
+  defp select_function({query, errors}, field_path, as_name, function_atom, state) do
     # Process the field path to get the final field and schema
     case process_field_path(field_path, state) do
       {:ok, final_field, final_schema, final_path} ->
@@ -157,8 +157,8 @@ defmodule Quarry.Select do
             Ecto.Query.select(query, %{})
           end
 
-          # Create the fragment expression based on the atom
-          query = case fragment_atom do
+          # Create the function expression based on the atom
+          query = case function_atom do
             :upper ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("UPPER(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :lower ->
@@ -182,8 +182,8 @@ defmodule Quarry.Select do
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             _ ->
-              # For unsupported fragments
-              raise ArgumentError, "Unsupported fragment '#{fragment_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median"
+              # For unsupported functions
+              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median"
           end
 
           {query, errors}
