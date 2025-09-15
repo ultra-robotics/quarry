@@ -66,6 +66,7 @@ defmodule Quarry.Sort do
       query = if field_name in state[:schema].__schema__(:fields) do
         Ecto.Query.order_by(query, [{^dir, field(as(^join_binding), ^field_name)}])
       else
+        # Handle selected_as fields - these are fields created in the select clause
         Ecto.Query.order_by(query, [{^dir, selected_as(^field_name)}])
       end
       {query, state[:errors]}
