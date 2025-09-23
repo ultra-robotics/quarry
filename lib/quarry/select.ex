@@ -6,7 +6,8 @@ defmodule Quarry.Select do
   alias Quarry.{Join, From}
 
   @type select :: atom() | [atom() | [atom()]] | select_map()
-  @type select_map :: %{field: [atom()], as: atom(), function: atom()}
+  @type select_map :: %{field: [atom()], as: atom(), function: atom() | function_with_args()}
+  @type function_with_args :: %{function: atom(), args: keyword()}
 
   @spec build({Ecto.Query.t(), [Quarry.error()]}, select(), [atom()]) ::
           {Ecto.Query.t(), [Quarry.error()]}
@@ -69,6 +70,11 @@ defmodule Quarry.Select do
     end
   end
 
+  defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, function: %{function: function_atom, args: args}}, state) when is_atom(function_atom) do
+    # Handle function with args like %{field: [:age], as: :age_bucket, function: %{function: :width_bucket, args: [start: 0, end: 100, num_buckets: 10]}}
+    select_function({query, errors}, field_path, as_name, function_atom, state, args)
+  end
+
   defp maybe_select_field({query, errors}, %{field: field_path, as: as_name, function: function_atom}, state) when is_atom(function_atom) do
     # Handle function with field path like %{field: [:author, :name], as: :author_name_upper, function: :upper}
     select_function({query, errors}, field_path, as_name, function_atom, state)
@@ -82,6 +88,16 @@ defmodule Quarry.Select do
   defp maybe_select_field({query, errors}, %{as: _as_name, function: _function_atom}, state) do
     # Handle function without required :field option
     {query, [build_function_error("Missing required :field option", state) | errors]}
+  end
+
+  defp maybe_select_field({query, errors}, %{field: _field_path, as: _as_name, function: %{function: _function_atom}}, state) do
+    # Handle function object without required :args option
+    {query, [build_function_error("Function object requires :args option", state) | errors]}
+  end
+
+  defp maybe_select_field({query, errors}, %{field: _field_path, as: _as_name, function: %{args: _args}}, state) do
+    # Handle function object without required :function option
+    {query, [build_function_error("Function object requires :function option", state) | errors]}
   end
 
   defp maybe_select_field({query, errors}, field_name, state) do
@@ -141,7 +157,7 @@ defmodule Quarry.Select do
     end
   end
 
-  defp select_function({query, errors}, field_path, as_name, function_atom, state) do
+  defp select_function({query, errors}, field_path, as_name, function_atom, state, args \\ []) do
     # Process the field path to get the final field and schema
     case process_field_path(field_path, state) do
       {:ok, final_field, final_schema, final_path} ->
@@ -181,11 +197,18 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :p95 ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :max ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("MAX(?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :width_bucket ->
+              start_val = Keyword.get(args, :start)
+              end_val = Keyword.get(args, :end)
+              num_buckets = Keyword.get(args, :num_buckets)
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("WIDTH_BUCKET(?, ?, ?, ?)", field(as(^join_binding), ^final_field), ^start_val, ^end_val, ^num_buckets), ^as_name)})
             _ ->
               # For unsupported functions
-              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median, :max"
+              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median, :p95, :max, :width_bucket"
           end
 
           {query, errors}

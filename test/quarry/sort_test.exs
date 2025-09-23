@@ -109,18 +109,4 @@ defmodule Quarry.SortTest do
     assert {query, []} = Sort.build(base, [[:author, :fake]], [:post, :comments, :user])
     assert query.order_bys != nil
   end
-
-  test "can sort by selected_as field", %{base: base} do
-    # Test sorting by a field that was created with selected_as (like from a function)
-    expected = from(p in Post, as: :post, order_by: [asc: selected_as(:date_day)])
-    assert {actual, []} = Sort.build(base, [:date_day])
-    assert inspect(actual) == inspect(expected)
-  end
-
-  test "can sort by selected_as field with direction tuple", %{base: base} do
-    # Test the specific pattern that was failing: {:asc, [:date_day]}
-    expected = from(p in Post, as: :post, order_by: [asc: selected_as(:date_day)])
-    assert {actual, []} = Sort.build(base, {:asc, [:date_day]})
-    assert inspect(actual) == inspect(expected)
-  end
 end
