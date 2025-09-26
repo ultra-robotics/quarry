@@ -197,6 +197,8 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :p90 ->
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :p95 ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :max ->
