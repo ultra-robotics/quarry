@@ -197,10 +197,9 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("AVG(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :median ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
-            :p90 ->
-              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
-            :p95 ->
-              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ?)", field(as(^join_binding), ^final_field)), ^as_name)})
+            :percentile ->
+              percentile_value = Keyword.get(args, :value, 0.5)
+              Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("PERCENTILE_CONT(?) WITHIN GROUP (ORDER BY ?)", ^percentile_value, field(as(^join_binding), ^final_field)), ^as_name)})
             :max ->
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("MAX(?)", field(as(^join_binding), ^final_field)), ^as_name)})
             :width_bucket ->
@@ -210,7 +209,7 @@ defmodule Quarry.Select do
               Ecto.Query.select_merge(query, %{^as_name => selected_as(fragment("WIDTH_BUCKET(?, ?, ?, ?)", field(as(^join_binding), ^final_field), ^start_val, ^end_val, ^num_buckets), ^as_name)})
             _ ->
               # For unsupported functions
-              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median, :p95, :max, :width_bucket"
+              raise ArgumentError, "Unsupported function '#{function_atom}'. Use one of: :upper, :lower, :concat, :date_trunc_day, :date_trunc_week, :date_trunc_month, :date_trunc_year, :count, :sum, :average, :median, :p90, :p95, :percentile, :max, :width_bucket"
           end
 
           {query, errors}
