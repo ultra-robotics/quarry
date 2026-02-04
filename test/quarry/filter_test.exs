@@ -182,4 +182,16 @@ defmodule Quarry.FilterTest do
     {actual, []} = Filter.build(base, %{title: {:ends_with, "learn vim"}})
     assert inspect(actual) == inspect(expected)
   end
+
+  test "can filter for nil field (simple value)", %{base: base} do
+    expected = from(p in Post, as: :post, where: is_nil(as(:post).inserted_at))
+    {actual, []} = Filter.build(base, %{inserted_at: nil})
+    assert inspect(actual) == inspect(expected)
+  end
+
+  test "can filter for nil field (explicit :eq)", %{base: base} do
+    expected = from(p in Post, as: :post, where: is_nil(as(:post).inserted_at))
+    {actual, []} = Filter.build(base, %{inserted_at: {:eq, nil}})
+    assert inspect(actual) == inspect(expected)
+  end
 end

@@ -71,6 +71,10 @@ defmodule Quarry.Filter do
     |> then(&{&1, errors})
   end
 
+  defp filter_by_operation({query, join_binding}, field_name, :eq, nil) do
+    Ecto.Query.where(query, is_nil(field(as(^join_binding), ^field_name)))
+  end
+
   defp filter_by_operation({query, join_binding}, field_name, :eq, value) do
     Ecto.Query.where(query, field(as(^join_binding), ^field_name) == ^value)
   end
