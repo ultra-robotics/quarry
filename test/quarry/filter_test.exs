@@ -194,4 +194,16 @@ defmodule Quarry.FilterTest do
     {actual, []} = Filter.build(base, %{inserted_at: {:eq, nil}})
     assert inspect(actual) == inspect(expected)
   end
+
+  test "can filter for not nil field (:neq nil)", %{base: base} do
+    expected = from(p in Post, as: :post, where: not is_nil(as(:post).inserted_at))
+    {actual, []} = Filter.build(base, %{inserted_at: {:neq, nil}})
+    assert inspect(actual) == inspect(expected)
+  end
+
+  test "can filter by not equal", %{base: base} do
+    expected = from(p in Post, as: :post, where: as(:post).title != ^"other")
+    {actual, []} = Filter.build(base, %{title: {:neq, "other"}})
+    assert inspect(actual) == inspect(expected)
+  end
 end
