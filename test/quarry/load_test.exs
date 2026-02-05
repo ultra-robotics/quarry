@@ -72,6 +72,21 @@ defmodule Quarry.LoadTest do
     assert inspect(actual) == inspect(expected)
   end
 
+  test "can preload has_one through", %{base: base} do
+    user_query = from(u in User, as: :post_user)
+
+    expected =
+      from(
+        p in Post,
+        as: :post,
+        preload: [user: ^user_query]
+      )
+
+    load = [:user]
+    {actual, []} = Load.build(base, load)
+    assert inspect(actual) == inspect(expected)
+  end
+
   test "can preload belongs_to and has_many with nested belongs_to", %{base: base} do
     comments_query =
       from(

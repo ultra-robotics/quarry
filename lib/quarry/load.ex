@@ -45,6 +45,26 @@ defmodule Quarry.Load do
     }
   end
 
+  defp preload_tree({query, errors}, %{cardinality: :one, through: through} = association, children, state) do
+    %{field: assoc} = association
+    binding = Keyword.get(state, :binding)
+
+    # Get the target schema by traversing the through associations
+    target_schema = get_target_schema(state[:schema], through)
+
+    quarry_opts =
+      Keyword.merge(extract_nested_opts(children),
+        binding_prefix: binding,
+        load_path: [assoc | state[:local_path] ++ state[:path]]
+      )
+
+    {subquery, sub_errors} = Quarry.build(target_schema, quarry_opts)
+
+    ordered_local_path = Enum.reverse([assoc | state[:local_path]])
+
+    {QueryStruct.add_preload(query, ordered_local_path, subquery), sub_errors ++ errors}
+  end
+
   defp preload_tree({query, errors}, %{cardinality: :one} = association, children, state) do
     %{queryable: child_schema, field: assoc} = association
     binding = Keyword.get(state, :binding)

@@ -7,6 +7,7 @@ defmodule Quarry.Post do
     field :inserted_at, :utc_datetime
 
     belongs_to :author, Quarry.Author, foreign_key: :author_id
+    has_one :user, through: [:author, :user]
     has_many :comments, Quarry.Comment
   end
 end
